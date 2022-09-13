@@ -1,0 +1,4 @@
+﻿  Main.cpp
+C:\Users\mehul\Documents\UTD\F22\Machine Learning\portfolio\Data_Exploration\Main.cpp(124,21): warning C4018: '<': signed/unsigned mismatch
+C:\Users\mehul\Documents\UTD\F22\Machine Learning\portfolio\Data_Exploration\Main.cpp(138,21): warning C4018: '<': signed/unsigned mismatch
+  Data_Exploration.vcxproj -> C:\Users\mehul\Documents\UTD\F22\Machine Learning\portfolio\Data_Exploration\Debug\Data_Exploration.exe
