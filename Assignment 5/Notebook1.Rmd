@@ -1,0 +1,273 @@
+---
+title: "Linear Regression of Housign(Notebook 1)"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+---
+
+**Authors:**
+
+Jack Asaad  
+Andrew Sen  
+Atmin Sheth  
+Neo Zhao
+
+**Date:**
+
+10/10/2022
+
+### Introduction 
+The notebook 1 uses the House Price dataset , acquired from Kaggle, the dataset was taged as a linear regession model usage. Because of this you will see best model being Linearn Regreassion.
+In the Notebook we are comparing 3 models linear regression, KNN and desicion tree
+Target is Prices of the hour and rest are set as predictors
+```{r}
+library(ROCR)
+```
+
+```{r}
+library(mccr)
+library(caret)
+library(tree)
+```
+### Read the data
+```{r}
+hp <- read.csv("HousePrices_HalfMil.csv")
+summary(hp)
+```
+
+
+#splitting to test and train
+
+Looking at the summary of the data set, the target being prices and predictors beign Area,Bath and floors after doing a relation between area and price I saw there may need a inclusion of city which is also coming into play
+even after thatt ,using all predictor gives the best result
+```{r}
+set.seed(1234)
+i<- sample(1:nrow(hp),nrow(hp)*0.8,replace=FALSE)
+train <- hp[i,]
+test <- hp[-1,]
+summary(train)
+```
+
+### Data Exploration
+
+```{r}
+dim(train)
+```
+
+```{r}
+head(train)
+#getting the first 500 attribute 
+Tsample <- train[1:500,]
+```
+
+```{r}
+tail(train)
+```
+
+```{r}
+str(train)
+```
+
+```{r}
+plot(Tsample$Area,Tsample$Prices)
+```
+
+```{r}
+plot(Tsample$Prices~Tsample$Area)
+```
+
+```{r}
+plot(Tsample$Baths,Tsample$Area)
+```
+
+```{r}
+plot(Tsample$Baths,Tsample$Pricesw)
+```
+
+```{r}
+T<- table(train$City,(train$Prices>=35000))
+plot(T)
+
+```
+
+```{r}
+plot(train$White.Marble,train$Prices)
+```
+### Linear Regreasstion 
+```{r}
+lm1 <-lm(Prices~Area, data=train)
+summary(lm1)
+```
+
+Looking at the krelation of prices upon the area is very week. Though we do have a good p-value. the R-square of .022 is a low value indicating it is not a good predictor, to really knoiw the price of this i think have a all atribute will give the
+
+```{r}
+lm2 <-lm(Prices~. , data=train)
+summary(lm2)
+```
+
+it seems the accurate relation for price for all factor besides Indian Marble, this accuracy is seen from Multiple regression
+
+```{r}
+#ploting residuals 
+par(mfrow=c(2,2))
+plot(lm2)
+
+```
+
+# Evaluate
+The correlation is 1 which is really good 
+and we missed by 3.31e-16
+```{r}
+pred1 <- predict(lm2,newdata = test)
+cor_lm2 <-cor(pred1,test$Prices)
+mme1 <- mean((pred1-test$Prices)^2)
+print(paste("cor= ", cor_lm2))
+```
+
+```{r}
+
+print(paste("mse = ", mme1))
+```
+
+
+### KNN Regression
+we get a cor of .11
+and mse of 2149405815.5969
+```{r}
+train_cut <- train[,c(1,3:16)]
+test_cut <- test[,c(1,3:16)]
+unique(train_cut)
+unique(test_cut)
+train_cut <-train_cut[1:100,]
+test_cut <- test_cut[1:100,]
+fit <- knnreg(train_cut[,2:8],train_cut[,1], k=1)
+predK <- predict(fit,test_cut[,2:8])
+cor_knn1 <-cor(predK,test_cut$Prices)
+mse_knn1<-mean((predK-test_cut$Prices)^2)
+print(paste("cor=",cor_knn1))
+
+```
+```{r}
+print(paste("mse=",mse_knn1))
+```
+
+
+
+#scale the data
+In scale data the mse is still high 
+cor is .79
+the mse is 72856712.8454861
+```{r}
+train_scaled <-train_cut[,2:8]
+means <- sapply(train_scaled, mean)
+stdvs <- sapply(train_scaled,sd)
+train_scaled <-scale(train_scaled,center=means,scale=stdvs)
+test_scaled <- scale(test_cut[,2:8],center=means,scale=stdvs)
+
+fit<- knnreg(train_scaled,train_cut$Prices,k=3)
+pred_scale <- predict(fit,test_scaled)
+cor_knn2 <- cor(pred_scale,test_cut$Prices)
+mse_knn2 <- mean((pred_scale-test_cut$Prices)^2)
+print(paste("cor=",cor_knn2))
+```
+
+```{r}
+print(paste("mse=",mse_knn2))
+```
+
+#find the k 
+```{r}
+cor_k <- rep(0, 20)
+mse_k <- rep(0, 20)
+i <- 1
+for (k in seq(1, 39, 2)){
+  fit_k <- knnreg(train_scaled,train_cut$Prices, k=k)
+  pred_k <- predict(fit_k, test_scaled)
+  cor_k[i] <- cor(pred_k, test_cut$Prices)
+  mse_k[i] <- mean((pred_k - test_cut$Prices)^2)
+  print(paste("k=", k, cor_k[i], mse_k[i]))
+  i <- i + 1
+}
+plot(1:20, cor_k, lwd=2, col='red', ylab="", yaxt='n')
+par(new=TRUE)
+plot(1:20, mse_k, lwd=2, col='blue', labels=FALSE, ylab="", yaxt='n')
+```
+
+find the best k 
+```{r}
+which.min(mse_k)
+which.max(cor_k)
+```
+let's compare with k being 20 a slight worst result then k =3
+cor = .77 and mse = 111351666.0285
+```{r}
+fit_20<- knnreg(train_scaled,train_cut$Prices,k=20)
+pred_20<- predict(fit_20,test_scaled)
+cor_k20 <- cor(pred_20,test_cut$Prices)
+mse_k20 <- mean((pred_20-test_cut$Prices)^2)
+print(paste("cor=",cor_k20))
+```
+```{r}
+print(paste("mse=",mse_k20))
+```
+
+
+### Using Tree
+```{r}
+tree1<- tree(Prices~. , data=train )
+summary(tree1)
+```
+
+Correlation is .9
+rsme of 51514
+```{r}
+pred<-predict(tree1,newdata = test)
+corr_tree <- cor(pred,test$Prices)
+print(paste("corr=",corr_tree ))
+```
+```{r}
+rsmeT <- sqrt(mean((pred-test$Prices)^2))
+print(paste("RSME=", rsmeT))
+```
+The plot is quite neat than expected 
+```{r}
+plot(tree1)
+text(tree1,cex=1,pretty=0)
+```
+#cross validation
+The plot shows 8 terminals for the full tree.it seems there are two "dips" happening in the plot,
+I am taking the bend at 3 as I think that will give me the best tree and better understanding
+```{r}
+cv_tree <- cv.tree(tree1)
+plot(cv_tree$size,cv_tree$dev, type='b')
+```
+
+# prune the tree
+
+```{r}
+tree_prune <- prune.tree(tree1,best=3)
+plot(tree_prune)
+text(tree_prune,pretty=0)
+```
+
+
+
+
+#test the pruned
+correlation is .71 and the rsme came out to be 8554.561
+```{r}
+pred_prunned<-predict(tree_prune,newdata = test)
+cor_prunned <- cor(pred_prunned,test$Prices)
+rsme_prunned <- sqrt(mean((pred_prunned-test$Prices)^2))
+print(paste("cor=",cor_prunned))
+```
+```{r}
+print(paste("rmse=",rsme_prunned))
+```
+
+### Conclusion
+
+We see the best model to be Linear Regression, as we are getting the R-squared being 1 . The worst I believe to be the KNN as I was not able to run the model on the full data set, I had to reduce the records to get the proper model, even then, I got a high mse even when it was scaled. KNN is not good for a large dataset. Decision tree was quite decent, it used three predictor rather than using all of them, it used Fiber, Floors and White marbel for predictore with prices being the target. This means this were the deciding factor for prices at the house. The DEcision tree shows the important predictor for the target set, it gives a good decising facot such as for pricing in this dataset.

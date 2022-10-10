@@ -1,0 +1,271 @@
+---
+title: "Classification - Neo Zhao - CS4375"
+output:
+  pdf_document: default
+---
+
+## Linear Models
+* Logistic Regression uses a qualitative target variable to predict. In this project, I have found the ratings of Red and White wine. I will be setting all ratings > 3 to 1 and all ratings < 3 to 0. While there were about 32 observations that were exactly 3, we will omit them as it will not mess with the data too much out of 12,000+ observations. The Linear Model for classification will create a sort of barrier to seperate into different classes. In this project, Ratings > 3 and Ratings < 3 will be predicted into 2 different classes. 
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(ROCR)
+library(mccr)
+library(ISLR)
+library(caret)
+library(tree)
+library(rpart)
+
+# Source: https://www.kaggle.com/datasets/budnyak/wine-rating-and-price?select=Red.csv 
+
+# Red, White, Rose, and Sparkling wine are all from the same dataset; however, separated by type
+
+# Red Total: 8666 
+Red <- read.csv("Red.csv")
+
+# White Total: 3764
+White <- read.csv("White.csv")
+
+# Rose Total: 397
+Rose <- read.csv("Rose.csv")
+
+# Sparkling Total: 1007
+Sparkling <- read.csv("Sparkling.csv")
+
+# Combine the datasets together, Total: 13058
+totalWine <- rbind(data = Red, data = White, data = Rose, data = Sparkling)
+
+# Rename ï..Name to just Name
+names(totalWine)[1] <- "Name"
+
+# Omit Names, Winery, & Region Column
+totalWine <- subset(totalWine, select = -c(Name, Winery, Region))
+
+# Omit all records where Year = N.V.
+totalWine <- subset(totalWine, totalWine$Year != "N.V.")
+
+# Omit all records where Rating = 3, Total: 12398
+totalWine <- subset(totalWine, totalWine$Rating != 3)
+
+# Omit all records before 2000s
+totalWine <- subset(totalWine, totalWine$Year >= 2000)
+
+# Replace ratings with 1 if Rating > 3 and replace with 0 if Rating < 3
+totalWine$Rating[totalWine$Rating <= 3] <- 0
+totalWine$Rating[totalWine$Rating > 3] <- 1
+
+# Reorder Columns
+totalWine <- totalWine[,c(1,2,3,5,4)]
+```
+
+```{r}
+# Split to 80/20 Train/Test
+set.seed(512)
+i <- sample(1 : nrow(totalWine), round(nrow(totalWine) * 0.8), replace = FALSE)
+train <- totalWine[i,]
+test <- totalWine[-i,]
+```
+
+### Data Exploration
+```{r}
+# 1) summary()
+summary(train)
+```
+
+```{r}
+# 2) is.na()
+colSums(is.na(train))
+```
+
+```{r}
+# 3) str()
+str(train)
+```
+
+```{r}
+# 4) head() functions
+head(train)
+```
+
+```{r}
+# 5) cor() and pairs()
+cor(train[,c(-1, -4)])
+
+pairs(train[,c(-1, -4)])
+```
+
+### Informative Graphs
+```{r}
+# Red
+plot(Rating ~ Price, data = Red, main = "Red Wine", xlab = "Price", ylab = "Rating")
+
+# White
+plot(Rating ~ Price, data = White, main = "White Wine", xlab = "Price", ylab = "Rating")
+
+# Rose
+plot(Rating ~ Price, data = Rose, main = "Rose Wine", xlab = "Price", ylab = "Rating")
+
+# Sparkling
+plot(Rating ~ Price, data = Sparkling, main = "Sparkling Wine", xlab = "Price", ylab = "Rating")
+```
+
+### Linear Regression
+* The correlation for the Linear Model was 28%, which is not the best. Can kNN do better?
+```{r}
+# Split to 80/20 Train/Test
+set.seed(512)
+i <- sample(1 : nrow(totalWine), round(nrow(totalWine) * 0.8), replace = FALSE)
+train <- totalWine[i,]
+test <- totalWine[-i,]
+```
+
+```{r}
+# Linear Regression
+lm1 <- lm(Price ~ ., data = train)
+summary(lm1)
+```
+
+```{r}
+# Plotting Residuals
+par(mfrow = c(2,2))
+plot(lm1)
+```
+
+```{r}
+pred1 <- predict(lm1, newdata = test)
+cor1 <- cor(pred1, test$Price)
+mse1 <- mean((pred1 - test$Price) ^ 2)
+rmse1 <- sqrt(mse1)
+
+print(paste ("Cor = ", cor1))
+print(paste ("MSE = ", mse1))
+```
+
+### kNN Clustering - Regression
+* The correlation for the knn Regression was 18%, which is lower than Linear Regression. The MSE is slightly higher than the Linear Regression; however, they are both very very high. Let's scale the data to see if it does any better.
+* The scaled correlation is 16%, which is only slightly higher and does not compete with the Linear Regression correlation. The MSE also is higher by 200.
+```{r}
+# Linear Model with all Predictors
+lm1 <- lm(Price ~. , data = totalWine)
+summary(lm1)
+```
+
+
+```{r}
+# kNN Regression
+train$Year <- as.numeric(train$Year)
+test$Year <- as.numeric(test$Year)
+
+fit <- knnreg(train[,2:4], train[,5], k = 3)
+predictions <- predict(fit, test[,2:4])
+cor_knn1 <- cor(predictions, test$Price)
+mse_knn1 <- mean((predictions - test$Price) ^ 2)
+
+print(paste ("Cor = ", cor_knn1))
+print(paste ("MSE = ", mse_knn1))
+```
+
+```{r}
+# Scaled Data
+trainScaled <- train[,2:4]
+means <- sapply(trainScaled, mean)
+stdvs <- sapply(trainScaled, sd)
+trainScaled <- scale(trainScaled, center = means, scale = stdvs)
+testScaled <- scale(test[,2:4], center = means, scale = stdvs)
+
+fit <- knnreg(trainScaled, train$Price, k = 3)
+predictions <- predict(fit, testScaled)
+cor_knn2 <- cor(predictions, test$Price)
+mse_knn2 <- mean((predictions - test$Price) ^ 2)
+
+print(paste ("Cor = ", cor_knn2))
+print(paste ("MSE = ", mse_knn2))
+```
+
+```{r}
+# Find the best k
+cor_k <- rep(0, 20)
+mse_k <- rep(0, 20)
+i <- 1
+for(k in seq(1, 39, 2)) {
+  fit_k <- knnreg(trainScaled, train$Price, k = k)
+  pred_k <- predict(fit_k, testScaled)
+  cor_k[i] <- cor(pred_k, test$Price)
+  mse_k[i] <- mean((pred_k - test$Price) ^ 2)
+  print(paste("k =", k, cor_k[i], mse_k[i]))
+  i <- i + 1
+  }
+```
+
+```{r}
+plot(1:20, cor_k, lwd = 2, col = 'red', ylab = "", yaxt = 'n')
+par(new = TRUE)
+plot(1:20, mse_k, lwd = 2, col = 'blue', labels = FALSE, ylab = "", yaxt = 'n')
+```
+
+```{r}
+# Let's Pick a different k = 39
+
+fit_39 <- knnreg(trainScaled, train$Price, k = 39)
+predictions_39 <- predict(fit_39, testScaled)
+cor_knn39 <- cor(predictions_39, test$Price)
+mse_knn39 <- mean((predictions_39 - test$Price) ^ 2)
+
+print(paste ("Cor = ", cor_knn39))
+print(paste ("MSE = ", mse_knn39))
+```
+
+### Decision Trees
+* My last code block makes another tree. The accuracy is an insane 99.8%!
+```{r}
+# Split to 80/20 Train/Test again just for fun I guess
+set.seed(1002)
+i <- sample(1 : nrow(totalWine), round(nrow(totalWine) * 0.8), replace = FALSE)
+train <- totalWine[i,]
+test <- totalWine[-i,]
+```
+
+```{r}
+# Using Tree
+tree1 <- tree(Price ~ ., data = train, method = "class")
+summary(tree1)
+```
+```{r}
+# Plotting Tree pt. 1
+plot(tree1, uniform = TRUE, margin = 0.2)
+text(tree1)
+```
+
+```{r}
+# Hehe Tree Pt. 2
+tree2 <- tree(Rating ~ ., data = train)
+tree2
+
+summary(tree2)
+```
+
+```{r}
+# Plotting Tree pt. 2
+plot(tree2)
+text(tree2, cex = 0.75, pretty = 0)
+```
+
+```{r}
+set.seed(4375)
+i <- sample(150, 100, replace = FALSE)
+train <- totalWine[i,]
+test <- totalWine[-i,]
+tree3 <- tree(Rating ~ ., data = train)
+pred <- predict(tree3, newdata = test)
+table(pred, test$Rating)
+```
+
+```{r}
+mean(pred == test$Rating)
+```
+
+
+
+
+

@@ -1,0 +1,167 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+# Part 4: Dimensionality Reduction
+
+In this section, we'll perform dimensionality reduction with principal components analysis (PCA) and Linear Discriminant Analysis (LDA) on the 'Wine Rating and Price' dataset which can be found here. (Check out the classification section of this assignment to find out more about the wine data and what we will try to do with dimensionality reduction, as we'll make comparisons with the findings in that section.)
+
+[Wine Dataset](https://www.kaggle.com/datasets/budnyak/wine-rating-and-price?select=Red.csv)
+
+For PDF viewers: https://www.kaggle.com/datasets/budnyak/wine-rating-and-price?select=Red.csv
+
+The wine data that was downloaded from kaggle was concatenated into a larger, total wine csv file. While there are distinct qualities in each type of wine that make them unique, we needed to concatenate them so that we have a large enough data set to perform analysis on.
+Additionally, all the wine categories held the same features, so a concatenation is not too messy to deal with.
+
+```{r}
+wine <- read.csv("totalWine.csv", header = TRUE)
+head(wine)
+tail(wine)
+str(wine)
+```
+Just for fun, let's find some max and min data from the super-dataset.
+```{r}
+print(max(wine$Rating))
+print(min(wine$Rating))
+print(max(wine$Price))
+print(min(wine$Price))
+```
+We have some pretty nice wine here... and some pretty awful selections as well. Though these values don't tell us much. Let's take a closer look at some of these values.
+```{r}
+print(subset(wine, Rating == max(Rating)))
+print(subset(wine, Rating == min(Rating)))
+print(subset(wine, Price == max(Price)))
+print(subset(wine, Price == min(Price)))
+```
+It looks like this trivial data exploration had a purpose after all! Thanks to the Gualtieri (which looks to have two of the ultimate value choices of wine on the list) winery we find some null values in our year column. We'll need to find a way to deal with them to get a cleaner experiment done. For now, let's check how many of these values we have.
+We'll use the table function to see how many occurrences each value in the year column has.
+
+```{r}
+nv_occur <- data.frame(table(wine$Year))
+print(nv_occur)
+```
+
+Our year column seems to house a lot of "N.V." values, 744 of them. This is concerning! Where are all these N.V.'s coming from!
+
+Recall how the totalWine.csv file was constructed. We concatenated multiple types of wine (Red, Rose, Sparkling and White) that were all in separate .csv files.
+```{r}
+spark <- read.csv("Sparkling.csv", header = TRUE)
+nv_occur_spark <- data.frame(table(spark$Year))
+print(nv_occur_spark)
+```
+As you can see, we have a bit of an issue with our "Sparkling" section of our wine. 728/744 null values come from that section. I cannot claim to be a domain expert on wine, but a quick google search tells me that wines made from a blend of other wines will exclude a vintage date, which can explain why a lot of these sparkling wines have no dates attached to them. 
+
+This concludes an already lengthy data exploration section.
+
+We'll copy the same conventions used in the classification section of the assignment, as we seek to make comparisons with accuracy after we complete dimensionality reduction.
+
+
+Let's divide into train and test.
+
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(ROCR)
+library(mccr)
+library(ISLR)
+library(caret)
+library(tree)
+library(rpart)
+```
+
+
+```{r}
+red <- read.csv("Red.csv")
+white <- read.csv("White.csv")
+rose <- read.csv("Rose.csv")
+sparkle <- read.csv("Sparkling.csv")
+totalWine <- rbind(data = red, data = white, data = rose, data = sparkle)
+names(totalWine)[1] <- "Name"
+```
+
+Now we need to clean our data.
+```{r}
+totalWine <- subset(totalWine, select = -c(Name, Winery, Region))
+totalWine <- subset(totalWine, totalWine$Year != "N.V.")
+totalWine <- subset(totalWine, totalWine$Rating != 3)
+totalWine <- subset(totalWine, totalWine$Year >= 2000)
+totalWine$Rating[totalWine$Rating <= 3] <- 0
+totalWine$Rating[totalWine$Rating > 3] <- 1
+totalWine <- totalWine[,c(1,2,3,5,4)]
+```
+
+And finally our train/test split.
+```{r}
+set.seed(512)
+i <- sample(1 : nrow(totalWine), round(nrow(totalWine) * 0.8), replace = FALSE)
+train <- totalWine[i,]
+test <- totalWine[-i,]
+str(train)
+```
+
+# PCA
+Now that our data is properly split, we'll go ahead and perform PCA on our data sets.
+PCA is an unsupervised dimensionality reduction algorithm, as it pays no attention to class. It reduces the data and plots them on a new coordinate space while reducing the axes. These reduced axes are principal components.
+```{r}
+pca_out <- preProcess(train[,1:5],method=c("center","scale","pca"))
+pca_out
+summary(pca_out)
+prWine <- prcomp(~Rating + NumberOfRatings + Price, data = totalWine, scale = TRUE, center = TRUE)
+prWine
+```
+As we can see, PCA found three principal components that are responsible for 95% of the variance. I will elect to leave out PC3, as a vast majority of the variance is found in PC1 and PC2. (As the first PC captures the most variance, and subsequent PCs will represent reducing variances.)
+Additionally, you may have noticed that we only have one attribute that is continuous (Price), this is problematic as PCA would assume that it performs it's methods on continuous variables when we've included two other discrete measures in Year and Rating. This may cause some trouble with our predictions.
+
+```{r}
+train_pc <- predict(pca_out, train[, 1:5])
+summary(train_pc)
+test_pc <- predict(pca_out, test[,])
+plot(test_pc$PC1, test_pc$PC2)
+plot(test_pc$PC1, test_pc$PC2, pch=c(23,21,22), bg=c("red","green","blue"))
+```
+Now that we have done our PCA, let's try linear regression.
+
+```{r}
+lm1 <- lm(train_pc$PC1 ~ ., data = train_pc)
+summary(lm1)
+```
+Now let's plot the residuals.
+```{r}
+par(mfrow = c(2,2))
+plot(lm1)
+```
+```{r}
+pred1 <- predict(lm1, newdata = test_pc)
+summary(pred1)
+print(cor(pred1, test_pc$PC1))
+print(mean(pred1 - test_pc$PC1) ^ 2)
+rmse1 <- sqrt(mean(pred1 - test_pc$PC1) ^ 2)
+rmse1
+```
+We can see that our correlation values fell a bit, signaling a slight reduction in accuracy. Which makes sense as we had reduced our data.
+
+# LDA 
+Linear discriminant analysis WILL consider class, unlike its cousin PCA. Thus, LDA can be superior when we have a known class to fit data into. LDA finds a linear combination of predictors that maximizes separation between classes and minimizes the standard deviation within a class.
+
+```{r}
+library(MASS)
+options(max.print = 100) #the output here was excessive, so I had to cut it down slightly.
+lda1 <- lda(Price~., data = train)
+lda1$means
+summary(lda1)
+coef(lda1)
+```
+
+Now let's test our LDA1 model.
+
+```{r}
+lda_pred <- predict(lda1, newdata = test, type = "class")
+options(max.print = 100) #the output here was excessive, so I had to cut it down slightly.
+lda_pred$class
+mean(lda_pred$class == test$Price)
+plot(lda_pred$x[,1], lda_pred$x[,2], pch=c(23,21,22), bg=c("red","green","blue"))
+```
+
+With a mean of 0.005, we have an absolutely diabolical accuracy score.
