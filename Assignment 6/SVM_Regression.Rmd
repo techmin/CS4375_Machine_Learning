@@ -1,0 +1,146 @@
+---
+title: "SVM_Regression"
+author: Atmin Sheth 
+output: html_notebook
+---
+
+## data information
+
+This notebook will use a dataset found on the UCI Machine Learning Repository: Fanaee-T, Hadi, and Gama, Joao, 'Event labeling combining ensemble detectors and background knowledge', Progress in Artificial Intelligence (2013): pp. 1-15, Springer Berlin Heidelberg, <https://archive.ics.uci.edu> /ml/datasets/bike+sharing+dataset
+(<https://archive.ics.uci.edu/ml/datasets/bike+sharing+dataset>). The data describes hourly bike rental numbers from the Capital Bikeshare system between 2011 and 2012.
+Target: cnt
+
+### library 
+```{r}
+library(e1071)
+```
+
+# Data Cleaning
+
+```{r}
+bikeSharing <- read.csv("Data/bike-sharing.csv")
+bikeSharing <- bikeSharing[,c(3:14,17)] #remove instant, dteday, casal , registered 
+bikeSharing <- bikeSharing[complete.cases(bikeSharing),]#remove incomplete 
+str(bikeSharing)
+```
+
+# Data Expletation 
+
+```{r}
+set.seed(1234)
+spec <- c(train=.6,test=.2, validate=.2)
+i <- sample(cut(1:nrow(bikeSharing),
+                nrow(bikeSharing)*cumsum(c(0,spec)), labels=names(spec)))
+train <- bikeSharing[i=="train",]
+test <- bikeSharing[i=="test",]
+valid <- bikeSharing[i=="validate",]
+```
+
+#running linear regression
+```{r}
+lm1 <- lm(cnt~hr+atemp+hum+windspeed+weathersit+weekday+holiday+yr+mnth, data=train)
+pred <- predict(lm1, newdata=test)
+cor_lm1 <- cor(pred,test$cnt)
+mse_lm1 <- mean((pred-test$cnt)^2)
+print(paste("cor= ",cor_lm1))
+print(paste("mse=",mse_lm1))
+```
+
+#trying svm to regression
+```{r}
+svm1 <- svm(cnt~. ,data=train, kernel="linear", cost=10, scale=TRUE)
+summary(svm1)
+```
+
+
+```{r}
+pred <- predict(svm1,newdata = test)
+cor_svm1 <- cor(pred,test$cnt)
+mse_svm1 <- mean((pred-test$cnt)^2)
+print(paste("cor= ", cor_svm1))
+print(paste("mse= ", mse_svm1))
+```
+#tune regression 
+let's tune the model to see different cost that can be use
+```{r}
+v <- valid[c(1:500),]
+tune_svm1 <- tune(svm,cnt~.,data=v,kernel="linear",
+                  ranges=list(cost=c(0.001,0.01,0.1,1,5,10,100)))
+summary(tune_svm1)
+```
+
+
+```{r}
+pred <- predict(tune_svm1$best.model,newdata=test)
+cor<- cor(pred,test$cnt)
+mse <- mean((pred-test$cnt)^2)
+print(paste("cor=",cor))
+print(paste("mase=",mse))
+```
+
+
+```{r}
+svm2 <- svm(cnt~. ,data=train, kernel="polynomial", cost=5, scale=TRUE)
+summary(svm2)
+
+```
+```{r}
+pred <- predict(svm2, newdata = test)
+cor_svm2 <- cor(pred,test$cnt)
+mse_svm2 <- mean((pred-test$cnt)^2)
+print(paste("cor= ", cor_svm2))
+print(paste("mse= ", mse_svm2))
+```
+
+# tune polinomial
+```{r}
+tune_svm2 <- tune(svm,cnt~.,data=v,kernel="polynomial",
+                  ranges=list(cost=c(0.001,0.01,0.1,1,5,10,100)))
+summary(tune_svm2)
+```
+
+
+```{r}
+pred <- predict(tune_svm2$best.model,newdata=test)
+cor_svm2<- cor(pred,test$cnt)
+mse_svm2<- mean((pred-test$cnt)^2)
+print(paste("cor=",cor_svm2))
+print(paste("mse=",mse_svm2))
+```
+
+##Try radial
+```{r}
+svm3 <- svm(cnt~. ,data=train, kernel="radial", cost=10, gamma=1, scale=TRUE)
+summary(svm3)
+```
+
+
+```{r}
+pred <- predict(svm3,newdata=test)
+cor_svm3 <-cor(pred,test$cnt)
+mse_svm3 <- mean((pred-test$cnt)^2)
+print(paste("cor=",cor_svm2))
+print(paste("mse=",mse_svm2))
+```
+#tune radial/ hyperparmeter
+```{r}
+tune_svm3 <- tune(svm,cnt~.,data=v,kernel="radial",
+                  ranges=list(cost=c(0.001,0.01,0.1,1,5,10,100),
+                              gamma=c(0.5,1,2,3,4)))
+summary(tune_svm3)
+```
+
+```{r}
+pred <- predict(tune_svm3$best.model,newdata=test)
+cor_svm2<- cor(pred,test$cnt)
+mse_svm2<- mean((pred-test$cnt)^2)
+print(paste("cor=",cor_svm2))
+print(paste("mse=",mse_svm2))
+```
+
+
+
+
+## analysis 
+The data seems to be good as we are getting a low cor and high mse, for each kernel we are seeing the same or similar numbers,
+and with tuning cost 100 having the lowest error in the list for all 3 methods. This best cost of 100 is bring bringing the lowest error and a good dispersion. This shows the way the hyper plans layes out on the set giving the most optimal result 

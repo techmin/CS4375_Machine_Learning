@@ -1,0 +1,212 @@
+---
+title: "sVM_Classification"
+autor: Atmin Sheth
+output:
+  html_document:
+    df_print: paged
+---
+
+## Data Information
+
+The data is found on Kaggle , uploaded by Deep contractor <https://www.kaggle.com/datasets/deepcontractor/smoke-detection-dataset> Classifying to two tpe of smoke detector photoelectric smoke detector and ionization soke detector The classification is determine by fire alarm to result if it is detected or the predictor: \* utc \* Tempreture \* Humidity \* target: \* Fire.Alarm
+
+#library
+
+```{r}
+library(e1071)
+```
+
+## Read Data
+
+```{r}
+df <- read.csv("Data/avocado.csv")
+df <- na.omit(df)
+df$type <- as.factor(df$type)
+
+str(df)
+```
+
+## Data Exploration
+
+let's try to see a classify relation
+
+```{r}
+head(df)
+```
+
+```{r}
+tail(df)
+```
+
+```{r}
+dim(df)
+```
+
+## train/test
+
+```{r}
+set.seed(1234)
+i<- sample(1:nrow(df), 0.8*nrow(df), replace=FALSE)
+train <-df[i,]
+test <- df[-i,]
+```
+
+#run classification
+
+```{r}
+glm1 <- glm(train$type~train$AveragePrice+train$Total.Bags,family="binomial",data=train )
+summary(glm1)
+```
+
+## try linear
+
+```{r}
+train_trim <- train[c(1:500),]
+#str(train)
+svm1 <- svm(train_trim$type~AveragePrice+ train_trim$Total.Bags, data=train_trim ,kernel="linear", cost=10, scale=TRUE)
+summary(svm1)
+```
+
+evaluate
+
+```{r}
+test_trim <- test[c(1:500),]
+pred <- predict(svm1,newdata = test_trim)
+table(pred,test_trim$type)
+```
+
+```{r}
+mean(pred==test_trim$type)
+```
+
+#diff cost
+
+```{r}
+tune1 <- tune(svm,type~AveragePrice+Total.Bags,data=train_trim,kernel="linear",
+              ranges=list(cost=c(
+0.001
+,
+0.01
+,
+0.1
+,
+1
+,
+5
+,
+10
+,
+100
+)))
+summary(tune1)
+```
+
+## try polynomial
+
+```{r}
+
+svm2 <- svm(train_trim$type~AveragePrice+ train_trim$Total.Bags,data=train_trim,kernel="polynomial", cost=10, scale=TRUE)
+summary(svm2)
+```
+
+# trying different cost
+
+```{r}
+svm2 <- svm(train_trim$type~AveragePrice+ train_trim$Total.Bags,data=train_trim,kernel="polynomial", cost=5, scale=TRUE)
+summary(svm2)
+```
+
+```{r}
+tune1 <- tune(svm,type~AveragePrice+Total.Bags,data=train_trim,kernel="polynomial",
+              ranges=list(cost=c(
+0.001
+,
+0.01
+,
+0.1
+,
+1
+,
+5
+,
+10
+,
+100
+)))
+summary(tune1)
+```
+
+```{r}
+pred <-predict(svm2,newdata=test_trim)
+mean(pred==test_trim$type)
+```
+
+```{r}
+svm3 <- svm(type~AveragePrice+Total.Bags,data=train_trim,cost=10,scale=TRUE)
+summary(svm3)
+```
+
+```{r}
+pred <-predict(svm2,newdata=test_trim)
+mean(pred==test_trim$type)
+```
+
+#different costs
+
+```{r}
+tune2 <- tune(svm,type~AveragePrice+Total.Bags,data=train_trim,kernel="polynomial",
+              ranges=list(cost=c(
+0.001
+,
+0.01
+,
+0.1
+,
+1
+,
+5
+,
+10
+,
+100
+)))
+summary(tune2)
+```
+
+## hyperplane
+
+```{r}
+tune_svm3 <- tune(svm,type~AveragePrice+Total.Bags,data=train_trim,kernel=
+"radial"
+, ranges=list(cost=c(
+0.001
+,
+0.01
+,
+0.1
+,
+1
+,
+5
+,
+10
+,
+100
+),
+gamma=c(
+0.5
+,
+1
+,
+2
+,
+3
+,
+4
+)))
+summary(tune_svm3)
+```
+
+## analysis/conclusion
+
+The Data shows a good results for all kernals. The best cost for the kernal varies on the choose kernal, such as for polynimial 100 is giving the best model, linear it's 5 and radial is 10. So the kernal choose is reflecting the dataset plane differently.
