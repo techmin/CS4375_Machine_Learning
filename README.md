@@ -26,3 +26,12 @@ Navie bayes [code](https://github.com/techmin/CS4375_Machine_Learning/blob/maste
 [Overview](https://docs.google.com/document/d/1JEgZlmd1956bK4WFQhXpfLWHDEPMSlLGF_0urF2xGfg/edit?usp=sharing)
 
 [codes](https://github.com/techmin/CS4375_Machine_Learning/tree/master/Assignment%205)
+
+# Assignment 6: Kernel and Ensemble
+[Overview](https://github.com/techmin/CS4375_Machine_Learning/blob/master/Assignment%206/Narrative.pdf)
+
+[Regression SVM](https://github.com/techmin/CS4375_Machine_Learning/blob/master/Assignment%206/SVM_Regression.pdf)
+
+[Classification SVM](https://github.com/techmin/CS4375_Machine_Learning/blob/master/Assignment%206/sVM_Classification.pdf)
+
+[Ensemble](https://github.com/techmin/CS4375_Machine_Learning/blob/master/Assignment%206/Ensemble.pdf)
