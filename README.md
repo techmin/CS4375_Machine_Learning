@@ -23,8 +23,8 @@ Linear regression [code](https://github.com/techmin/CS4375_Machine_Learning/blob
 Navie bayes [code](https://github.com/techmin/CS4375_Machine_Learning/blob/master/Assignment%204/Naive_bayes.cpp)
 
 # Assignment 5: ML from scratch 
-[the rcode and details](https://github.com/techmin/CS4357_ML_scratch)
-
+[Code](https://github.com/techmin/CS4357_ML_scratch)
+[evaluation](https://docs.google.com/document/d/1ktlHTweuKlWinWQdH1ErestQVm4Fc6xg_VtrEa8bYhE/edit?usp=sharing)
 # Assignment 6: Simmilarity 
 [Overview](https://docs.google.com/document/d/1JEgZlmd1956bK4WFQhXpfLWHDEPMSlLGF_0urF2xGfg/edit?usp=sharing)
 
